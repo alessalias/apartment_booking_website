@@ -1,0 +1,20 @@
+# Ignore Python cache
+__pycache__/
+*.py[cod]
+
+# Ignore virtual environment
+venv/
+
+# Ignore environment variables files
+.env
+
+# Ignore database if using SQLite
+db.sqlite3
+
+# Ignore Django static files if collected
+staticfiles/
+
+# VSCode and other editor folders
+.vscode/
+.idea/
+*.swp
