@@ -17,4 +17,4 @@ staticfiles/
 # VSCode and other editor folders
 .vscode/
 .idea/
-*.swp
+*.swpvenv/
