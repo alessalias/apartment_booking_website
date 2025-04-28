@@ -37,15 +37,39 @@ This app allows guests to book stays directly without needing third-party platfo
 ```bash
 git clone https://github.com/alessalias/navonaromantica.git
 cd navonaromantica 
+
+2. Create and activate a virtual environment
+
 python3 -m venv venv
 source venv/bin/activate  # On Windows use `venv\Scripts\activate`
+
+3. Install dependencies
+
 pip install -r requirements.txt
+
+4. Apply migrations
+
 python3 manage.py migrate
+
+5. Run the development server
+
 python3 manage.py runserver
+
+🧪 Running Tests
 
 Before pushing changes, always run tests locally with:
 python3 manage.py test
 
+GitHub Actions will also automatically run these tests for every commit.
+
+⚙️ Technologies Used
+
+	•	Django — Web Framework
+	•	Stripe — Payment Gateway
+	•	SQLite — Default lightweight database
+	•	GitHub Actions — Continuous Integration (CI)
+
+🛠️ Project Structure
 navonaromantica/
 │
 ├── booking/               # Booking app
@@ -61,3 +85,11 @@ navonaromantica/
 ├── manage.py              # Django management script
 ├── requirements.txt       # Python dependencies
 └── README.md              # Project documentation (this file)
+
+✨ Future Improvements
+	•	Add calendar view for availability
+	•	Allow cancellations/modifications
+	•	Admin dashboard for managing bookings
+	•	Internationalization (multi-language support)
+	•	Deployment on a cloud server (coming soon!)
+
