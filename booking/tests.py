@@ -237,3 +237,126 @@ class WebhookEmailFailureTest(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTrue(Booking.objects.exists())
+
+
+# ----------------------------
+# Test: Webhook Integration (Invalid Signature)
+# ----------------------------
+class WebhookIntegrationTest(TestCase):
+    def test_invalid_webhook_signature_returns_400(self):
+        """Invalid Stripe webhook signature should return 400."""
+        # Simulate Stripe webhook with invalid signature (no mocking)
+        response = self.client.post(
+            reverse('stripe-webhook'),
+            data=json.dumps({"type": "checkout.session.completed"}),
+            content_type='application/json',
+            HTTP_STRIPE_SIGNATURE='obviously-wrong'  # Deliberately invalid
+        )
+
+        # Expecting 400 as the webhook signature is invalid
+        self.assertEqual(response.status_code, 400)
+        
+        #This test simulates a real-world failure scenario where the webhook fails to validate due to a signature mismatch, helping catch misconfigured webhooks during deployment.
+
+
+
+# ----------------------------
+# Test: Availability Views (Calendar)
+# ----------------------------
+class AvailabilityViewTest(TestCase):
+    def test_availability_html_renders_successfully(self):
+        """GET /availability/ should return 200 and render the correct template."""
+        response = self.client.get(reverse('availability'))
+
+        # Check that the template renders successfully
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'booking/availability.html')
+
+    def test_availability_json_returns_existing_bookings(self):
+        """GET /availability/json/ should return JSON with paid bookings."""
+        Booking.objects.create(
+            name="Calendar Test",
+            email="calendar@test.com",
+            check_in=date.today() + timedelta(days=1),
+            check_out=date.today() + timedelta(days=3),
+            paid=True
+        )
+
+        response = self.client.get(reverse('availability_json'))
+        data = response.json()
+
+        # Should return one booking
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]["title"], "Booked")
+
+        # These tests verify both the frontend calendar view and the backend data JSON endpoint.
+
+
+
+# ----------------------------
+# Test: Webhook Error Handling (Missing Metadata)
+# ----------------------------
+@patch('booking.views.stripe.Webhook.construct_event')
+def test_missing_metadata_gracefully_fails(mock_construct_event):
+    """Webhook should ignore sessions with missing metadata without crashing."""
+    event = {
+        'type': 'checkout.session.completed',
+        'data': {'object': {}},  # No metadata present
+    }
+    mock_construct_event.return_value = event
+
+    response = Client().post(
+        reverse('stripe-webhook'),
+        data=json.dumps({}),  # Empty payload
+        content_type='application/json',
+        HTTP_STRIPE_SIGNATURE='fake'
+    )
+
+    # Should respond with 200 to Stripe to avoid retry, but do nothing
+    assert response.status_code == 200
+    assert Booking.objects.count() == 0
+
+    # This test ensures robustness of the webhook handler when Stripe sends malformed or unexpected payloads, which is common in real-world edge cases.
+
+
+# ----------------------------
+# Test: Webhook Overlapping Paid Booking
+# ----------------------------
+@patch('booking.views.stripe.Webhook.construct_event')
+def test_webhook_ignores_overlapping_paid_booking(mock_construct_event):
+    """Webhook should not create booking if paid booking already exists for those dates."""
+    # Create existing paid booking
+    Booking.objects.create(
+        name='Existing Guest',
+        email='guest@demo.com',
+        check_in=date.today() + timedelta(days=3),
+        check_out=date.today() + timedelta(days=7),
+        paid=True
+    )
+
+    # Create event with overlapping dates
+    metadata = {
+        'name': 'New Guest',
+        'email': 'new@demo.com',
+        'check_in': (date.today() + timedelta(days=4)).isoformat(),
+        'check_out': (date.today() + timedelta(days=8)).isoformat(),
+        'total_price': 500,
+    }
+    event = {
+        'type': 'checkout.session.completed',
+        'data': {'object': {'metadata': metadata}},
+    }
+    mock_construct_event.return_value = event
+
+    response = Client().post(
+        reverse('stripe-webhook'),
+        data=json.dumps({}),
+        content_type='application/json',
+        HTTP_STRIPE_SIGNATURE='fake'
+    )
+
+    # Booking should not be created
+    assert response.status_code == 200
+    assert Booking.objects.count() == 1  # Only the original
+
+    # This tests for overlapping booking scenarios that sneak past form validation but originate from webhook events.
