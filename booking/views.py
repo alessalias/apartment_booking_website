@@ -148,3 +148,24 @@ def stripe_webhook(request):
         return JsonResponse({'status': 'success'})
 
     return HttpResponse(status=200)
+
+
+
+# HTML view
+def availability_view(request):
+    return render(request, "booking/availability.html")
+
+# JSON data view
+def availability_json(request):
+    bookings = Booking.objects.all()
+    events = []
+
+    for booking in bookings:
+        events.append({
+            "title": "Booked",
+            "start": booking.check_in.isoformat(),
+            "end": booking.check_out.isoformat(),
+            "color": "red"
+        })
+
+    return JsonResponse(events, safe=False)

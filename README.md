@@ -1,5 +1,7 @@
 # Navona Romantica Booking
 
+#### Video Demo: https://youtu.be/b_q5iXyLxxQ
+
 [![Django CI](https://github.com/alessalias/navonaromantica/actions/workflows/django.yml/badge.svg)](https://github.com/alessalias/navonaromantica/actions/workflows/django.yml)
 
 Welcome to **Navona Romantica Booking**, a minimalist booking system built with Django!  

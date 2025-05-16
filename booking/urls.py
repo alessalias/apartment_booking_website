@@ -7,4 +7,6 @@ urlpatterns = [
     path('success/', views.payment_success, name='success'),
     path('cancel/', views.payment_cancel, name='cancel'),
     path('stripe/webhook/', views.stripe_webhook, name='stripe-webhook'),
+    path("availability/", views.availability_view, name="availability"),  # HTML view
+    path("availability/json/", views.availability_json, name="availability_json"),  # JSON data
 ]

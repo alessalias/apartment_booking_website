@@ -1,17 +1,12 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Book Your Stay</title>
-</head>
-<body>
-    <h1>Book Your Stay</h1>
+{% extends "booking/layout.html" %}
 
-    {# Display view-level error messages #}
+{% block content %}
+    <h2>Book Your Stay</h2>
+
     {% if error %}
         <p style="color: red;">{{ error }}</p>
     {% endif %}
 
-    {# Display form validation errors (e.g. invalid dates) #}
     {% if form.errors %}
         <ul style="color: red;">
             {% for field in form %}
@@ -30,5 +25,4 @@
         {{ form.as_p }}
         <button type="submit">Book Now</button>
     </form>
-</body>
-</html>
+{% endblock %}
