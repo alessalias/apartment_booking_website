@@ -1,16 +1,27 @@
-from datetime import date
+from .decorators import owner_required
+from .forms import BookingForm, RegisterForm
+from .models import Booking, PricingRule, PricingConfig, OwnerProfile
+from .utils import calculate_total_price
+from calendar import monthrange
+from datetime import date, timedelta
+from decimal import Decimal
+from django.conf import settings
+from django.contrib.auth import authenticate, login, logout, get_user_model
+from django.contrib.auth.decorators import login_required
 from django.core.mail import send_mail
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.db.models import Q
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
-from django.conf import settings
 from django.shortcuts import render, redirect
+from django.utils.timezone import now
 from django.views.decorators.csrf import csrf_exempt
-from .forms import BookingForm
+from django.views.decorators.http import require_POST
+from django import forms
 import logging
-import stripe
 from smtplib import SMTPException
-from .models import Booking
+import stripe
+
+User = get_user_model()
 
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
@@ -49,9 +60,7 @@ def book_view(request):
                     'error': 'These dates are already booked.',
                 })
 
-            # Calculate number of nights
-            nights = (check_out - check_in).days
-            total_amount = nights * nightly_rate * 100  # Stripe expects cents
+            total_amount = int(float(calculate_total_price(check_in, check_out)) * 100) # Stripe expects cents as integers
 
             # Create Stripe Checkout Session
             session = stripe.checkout.Session.create(
@@ -169,3 +178,80 @@ def availability_json(request):
         })
 
     return JsonResponse(events, safe=False)
+
+
+def register_view(request):
+    if request.method == 'POST':
+        form = RegisterForm(request.POST)
+        if form.is_valid():
+            try:
+                user = form.save(commit=False)
+                user.set_password(form.cleaned_data['password'])
+                user.save()
+
+                # Attach owner profile by default for now
+                OwnerProfile.objects.create(user=user, name=form.cleaned_data['name'])
+
+                login(request, user)
+                return redirect('owner_dashboard')
+
+            except IntegrityError:
+                form.add_error('username', 'Username already taken.')
+    else:
+        form = RegisterForm()
+
+    return render(request, 'registration/register.html', {'form': form})
+
+
+def login_view(request):
+    if request.method == "POST":
+        username = request.POST.get("username")
+        password = request.POST.get("password")
+        user = authenticate(request, username=username, password=password)
+        if user:
+            login(request, user)
+            return redirect("owner_dashboard")
+        else:
+            return render(request, "registration/login.html", {
+                "message": "Invalid username or password."
+            })
+    return render(request, "registration/login.html")
+
+
+def logout_view(request):
+    logout(request)
+    return redirect("login")
+
+
+@owner_required
+def owner_dashboard(request):
+    today = now().date()
+    upcoming_bookings = Booking.objects.filter(check_out__gte=today).order_by('check_in')
+    base_price_obj = PricingConfig.objects.first()
+    base_rate = base_price_obj.base_rate if base_price_obj else None
+
+    context = {
+        'bookings': upcoming_bookings,
+        'base_rate': base_rate,
+    }
+    return render(request, 'owner/dashboard.html', context)
+
+
+@require_POST
+@owner_required
+def update_base_rate(request):
+    new_rate = request.POST.get('base_rate')
+    try:
+        rate_decimal = Decimal(new_rate)
+        config, _ = PricingConfig.objects.get_or_create(pk=1)
+        config.base_rate = rate_decimal
+        config.save()
+    except (InvalidOperation, TypeError):
+        pass  # Optional: add error feedback
+
+    return redirect('owner_dashboard')
+
+
+@owner_required
+def owner_calendar(request):
+    return render(request, 'owner/calendar.html')

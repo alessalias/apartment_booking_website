@@ -1,3 +1,4 @@
+from django.contrib.auth import views as auth_views
 from django.urls import path
 from . import views
 
@@ -9,4 +10,10 @@ urlpatterns = [
     path('stripe/webhook/', views.stripe_webhook, name='stripe-webhook'),
     path("availability/", views.availability_view, name="availability"),  # HTML view
     path("availability/json/", views.availability_json, name="availability_json"),  # JSON data
+    path('login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
+    path('logout/', auth_views.LogoutView.as_view(template_name='logout.html'), name='logout'),
+    path('register/', views.register_view, name='register'),
+    path('owner/dashboard/', views.owner_dashboard, name='owner_dashboard'),
+    path('owner/update-base-rate/', views.update_base_rate, name='update_base_rate'),
+    path('owner/calendar/', views.owner_calendar, name='owner_calendar'),
 ]

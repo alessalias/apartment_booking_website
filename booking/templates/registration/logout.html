@@ -1,0 +1,10 @@
+{% extends 'booking/layout.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="alert alert-info text-center">
+        <h2>You have been logged out.</h2>
+        <a href="{% url 'login' %}" class="btn btn-primary mt-3">Log in again</a>
+    </div>
+</div>
+{% endblock %}

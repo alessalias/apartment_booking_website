@@ -1,5 +1,8 @@
 from django import forms
 from .models import Booking
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 class BookingForm(forms.ModelForm):
     class Meta:
@@ -17,3 +20,21 @@ class BookingForm(forms.ModelForm):
 
         if check_in and check_out and check_out <= check_in:
             raise forms.ValidationError("Check-out date must be after check-in date.")
+
+
+class RegisterForm(forms.ModelForm):
+    password = forms.CharField(widget=forms.PasswordInput)
+    password_confirm = forms.CharField(widget=forms.PasswordInput)
+    name = forms.CharField()
+
+    class Meta:
+        model = User
+        fields = ['username', 'email', 'name']
+
+    def clean(self):
+        cleaned_data = super().clean()
+        password = cleaned_data.get("password")
+        password_confirm = cleaned_data.get("password_confirm")
+        if password != password_confirm:
+            raise forms.ValidationError("Passwords must match.")
+        return cleaned_data

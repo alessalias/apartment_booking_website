@@ -1,0 +1,24 @@
+{% extends "booking/layout.html" %}
+{% block content %}
+<h2 class="mb-4">Login</h2>
+
+<form method="post" class="needs-validation" novalidate>
+    {% csrf_token %}
+
+    {% for field in form %}
+        <div class="mb-3">
+            <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+            {{ field }}
+            {% if field.errors %}
+                <div class="text-danger small">{{ field.errors }}</div>
+            {% endif %}
+        </div>
+    {% endfor %}
+
+    {% if form.non_field_errors %}
+        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <button type="submit" class="btn btn-primary">Login</button>
+</form>
+{% endblock %}

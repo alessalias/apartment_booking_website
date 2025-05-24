@@ -20,6 +20,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
+AUTH_USER_MODEL = 'booking.User'
+LOGIN_REDIRECT_URL = 'owner_dashboard'  # or wherever you want to redirect after login
+LOGOUT_REDIRECT_URL = '/'  # or homepage
+
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-4h)sx&njch##k#f=tnl2z31s+1zj+vmhl0f)+ztd=wdq3o-@!b'
 STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY', 'sk_test_51RCUZNRxzYnEVIWRvcNLzwofis50jGpWr18F9c7x9mE2zP8OgeVTBSRCNS6tPIUCkMZuNZlnDx868ecOkWGvxZNi00GlVn0lDh')
