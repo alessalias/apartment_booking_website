@@ -62,3 +62,9 @@ class PricingRule(models.Model):
 class PricingConfig(models.Model):
     base_rate = models.DecimalField(max_digits=6, decimal_places=2, default=120)
     # Optional: add FK to OwnerProfile or Property in future
+
+class AvailabilityConfig(models.Model):
+    months_ahead = models.PositiveIntegerField(default=3)
+
+    def __str__(self):
+        return f"Available for {self.months_ahead} months ahead"

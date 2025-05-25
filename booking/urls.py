@@ -16,4 +16,7 @@ urlpatterns = [
     path('owner/dashboard/', views.owner_dashboard, name='owner_dashboard'),
     path('owner/update-base-rate/', views.update_base_rate, name='update_base_rate'),
     path('owner/calendar/', views.owner_calendar, name='owner_calendar'),
+    path('owner/booking-window/', views.manage_booking_window, name='manage_booking_window'),
+    path('owner/calendar-data/', views.owner_calendar_data, name='calendar_data'),
+    path('owner/update-price/', views.update_price, name='update_price'),
 ]

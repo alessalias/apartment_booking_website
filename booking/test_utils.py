@@ -1,7 +1,7 @@
 from django.test import TestCase
 from datetime import date, timedelta
 from booking.models import PricingRule, PricingConfig
-from booking.utils import calculate_total_price
+from booking.utils import calculate_total_price, DEFAULT_BASE_RATE  # Import the fallback rate constant
 
 class CalculateTotalPriceTest(TestCase):
     def setUp(self):
@@ -37,9 +37,10 @@ class CalculateTotalPriceTest(TestCase):
 
         self.assertEqual(total, expected_total)
 
+    
     def test_total_price_with_missing_pricing_config(self):
         """
-        Should fallback to hardcoded default if no PricingConfig exists.
+        Should fallback to DEFAULT_BASE_RATE if no PricingConfig exists.
         """
         PricingConfig.objects.all().delete()
         PricingRule.objects.all().delete()
@@ -48,6 +49,6 @@ class CalculateTotalPriceTest(TestCase):
         check_out = date.today() + timedelta(days=3)
 
         total = calculate_total_price(check_in, check_out)
-        expected_total = 2 * 100  # Fallback default
+        expected_total = 2 * DEFAULT_BASE_RATE  # Use the constant, not hardcoded value
 
         self.assertEqual(total, expected_total)

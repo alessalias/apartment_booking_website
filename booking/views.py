@@ -1,11 +1,12 @@
 from .decorators import owner_required
-from .forms import BookingForm, RegisterForm
-from .models import Booking, PricingRule, PricingConfig, OwnerProfile
-from .utils import calculate_total_price
+from .forms import BookingForm, RegisterForm, AvailabilityConfigForm
+from .models import Booking, PricingRule, PricingConfig, OwnerProfile, AvailabilityConfig
+from .utils import calculate_total_price, get_base_rate, get_override_price_for_date, get_nightly_price
 from calendar import monthrange
 from datetime import date, timedelta
 from decimal import Decimal
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout, get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.mail import send_mail
@@ -164,8 +165,15 @@ def stripe_webhook(request):
 def availability_view(request):
     return render(request, "booking/availability.html")
 
-# JSON data view
 def availability_json(request):
+    today = date.today()
+
+    # Get availability window
+    availability_config = AvailabilityConfig.objects.first()
+    months_ahead = availability_config.months_ahead if availability_config else 3
+    max_date = today + timedelta(days=months_ahead * 30)
+
+    # Bookings
     bookings = Booking.objects.all()
     events = []
 
@@ -176,6 +184,25 @@ def availability_json(request):
             "end": booking.check_out.isoformat(),
             "color": "red"
         })
+
+    # Pricing rules
+    pricing_rules = PricingRule.objects.filter(date__range=(today, max_date))
+    pricing_dict = {pr.date: pr.price for pr in pricing_rules}
+    base_rate = get_base_rate()
+
+    # Add price for each available day
+    current = today
+    while current <= max_date:
+        if not any(b.check_in <= current < b.check_out for b in bookings):  # Skip if already booked
+            price = pricing_dict.get(current, base_rate)
+            events.append({
+                "title": f"€{price}",
+                "start": current.isoformat(),
+                "allDay": True,
+                "color": "#d1e7dd",
+                "textColor": "#0f5132"
+            })
+        current += timedelta(days=1)
 
     return JsonResponse(events, safe=False)
 
@@ -255,3 +282,79 @@ def update_base_rate(request):
 @owner_required
 def owner_calendar(request):
     return render(request, 'owner/calendar.html')
+
+
+@owner_required
+def manage_booking_window(request):
+    config = AvailabilityConfig.objects.first()
+
+    if request.method == 'POST':
+        form = AvailabilityConfigForm(request.POST, instance=config)
+        if form.is_valid():
+            form.save()
+
+            # If it's an AJAX request, return JSON instead of redirecting
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({"success": True, "message": "Booking window updated successfully."})
+
+            messages.success(request, "Booking window updated successfully.")
+            return redirect('manage_booking_window')
+        else:
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({
+                    "success": False,
+                    "errors": form.errors,
+                }, status=400)
+    else:
+        form = AvailabilityConfigForm(instance=config)
+
+    return render(request, 'owner/manage_booking_window.html', {
+        'form': form,
+    })
+
+
+
+def owner_calendar_data(request):
+    # Show current + next month (adjust as needed)
+    today = date.today()
+    start_date = today.replace(day=1)
+    end_date = (start_date + timedelta(days=62))
+
+    events = []
+
+    d = start_date
+    while d <= end_date:
+        price = get_nightly_price(d)
+        is_booked = Booking.objects.filter(check_in__lte=d, check_out__gt=d, paid=True).exists()
+        events.append({
+            'title': f"€{price}" if price else '',
+            'start': d.isoformat(),
+            'allDay': True,
+            'extendedProps': {
+                'price': price,
+                'booked': is_booked,
+            },
+            'color': '#f0f0f0' if not is_booked else '#f8d7da',
+            'textColor': '#000'
+        })
+        d += timedelta(days=1)
+
+    return JsonResponse(events, safe=False)
+
+
+@csrf_exempt
+def update_price(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            date_obj = datetime.strptime(data['date'], '%Y-%m-%d').date()
+            price = int(data['price'])
+
+            rule, created = PricingRule.objects.update_or_create(
+                date=date_obj,
+                defaults={'price': price}
+            )
+            return JsonResponse({'success': True})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    return JsonResponse({'success': False, 'error': 'Invalid method'})

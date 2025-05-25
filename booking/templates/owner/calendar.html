@@ -1,6 +1,37 @@
 {% extends 'owner/layout.html' %}
+{% load static %}
+
 {% block content %}
 <h2>Calendar</h2>
 <p>Click on any day to change the nightly price.</p>
-<!-- calendar will go here -->
+<div id="calendar"></div>
+<!-- FullCalendar CSS & JS -->
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/main.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/main.min.js"></script>
+
+<!-- Modal for editing price -->
+<div class="modal fade" id="priceModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <form id="priceForm" class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Edit Price</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="modal-date" name="date">
+          <div class="mb-3">
+            <label for="modal-price" class="form-label">Nightly Price (€)</label>
+            <input type="number" class="form-control" id="modal-price" name="price" step="1" min="0">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+    <script src="{% static 'calendar.js' %}"></script>
 {% endblock %}

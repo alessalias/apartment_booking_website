@@ -10,16 +10,18 @@ Covers:
 - Business rules (past dates, overlapping bookings)
 """
 
+from .forms import BookingForm
+from .models import Booking, PricingConfig, PricingRule, AvailabilityConfig
+from .utils import calculate_total_price, get_max_bookable_date
 from datetime import date, timedelta
-import json
-from unittest.mock import patch
-
 from django.core import mail
 from django.test import TestCase, Client
 from django.urls import reverse
 from django.utils import timezone
+import json
+from unittest.mock import patch
 
-from .models import Booking
+
 
 
 # ----------------------------
@@ -273,7 +275,7 @@ class AvailabilityViewTest(TestCase):
         self.assertTemplateUsed(response, 'booking/availability.html')
 
     def test_availability_json_returns_existing_bookings(self):
-        """GET /availability/json/ should return JSON with paid bookings."""
+        """GET /availability/json/ should return JSON with paid bookings only."""
         Booking.objects.create(
             name="Calendar Test",
             email="calendar@test.com",
@@ -285,9 +287,12 @@ class AvailabilityViewTest(TestCase):
         response = self.client.get(reverse('availability_json'))
         data = response.json()
 
-        # Should return one booking
-        self.assertEqual(len(data), 1)
-        self.assertEqual(data[0]["title"], "Booked")
+        # Filter only "Booked" events (i.e., actual bookings)
+        booked_events = [event for event in data if event["title"] == "Booked"]
+
+        # Expect exactly one "Booked" event
+        self.assertEqual(len(booked_events), 1)
+        self.assertEqual(booked_events[0]["title"], "Booked")
 
         # These tests verify both the frontend calendar view and the backend data JSON endpoint.
 
@@ -360,3 +365,89 @@ def test_webhook_ignores_overlapping_paid_booking(mock_construct_event):
     assert Booking.objects.count() == 1  # Only the original
 
     # This tests for overlapping booking scenarios that sneak past form validation but originate from webhook events.
+
+
+"""
+██████╗ ███████╗███████╗████████╗
+██╔══██╗██╔════╝██╔════╝╚══██╔══╝
+██████╔╝█████╗  █████╗     ██║   
+██╔═══╝ ██╔══╝  ██╔══╝     ██║   
+██║     ███████╗███████╗   ██║   
+╚═╝     ╚══════╝╚══════╝   ╚═╝   
+AVAILABILITY / BOOKING WINDOW TESTS
+"""
+
+class AvailabilityTests(TestCase):
+
+    def setUp(self):
+        self.today = date.today()
+        self.config = AvailabilityConfig.objects.create(months_ahead=2)  # approx 60 days
+        self.max_date = get_max_bookable_date()
+
+    def test_max_bookable_date_calculation(self):
+        expected_max = self.today + timedelta(days=60)
+        self.assertEqual(self.max_date, expected_max)
+
+    def test_booking_outside_window_rejected(self):
+        form_data = {
+            'name': 'John',
+            'email': 'john@example.com',
+            'check_in': self.max_date + timedelta(days=1),
+            'check_out': self.max_date + timedelta(days=2),
+        }
+        form = BookingForm(data=form_data)
+        self.assertFalse(form.is_valid())
+        self.assertIn("Check-in is too far in the future.", form.errors['__all__'])
+
+    def test_booking_at_window_limit_is_valid(self):
+        form_data = {
+            'name': 'Alice',
+            'email': 'alice@example.com',
+            'check_in': self.max_date,
+            'check_out': self.max_date + timedelta(days=1),
+        }
+        form = BookingForm(data=form_data)
+        self.assertTrue(form.is_valid())
+
+    def test_booking_with_check_out_before_check_in(self):
+        form_data = {
+            'name': 'Foo',
+            'email': 'foo@example.com',
+            'check_in': self.today + timedelta(days=10),
+            'check_out': self.today + timedelta(days=5),
+        }
+        form = BookingForm(data=form_data)
+        self.assertFalse(form.is_valid())
+        self.assertIn("Check-out date must be after check-in date.", form.errors['__all__'])
+
+"""
+██████╗ ██████╗ ███████╗███████╗
+██╔══██╗██╔══██╗██╔════╝██╔════╝
+██████╔╝██████╔╝█████╗  ███████╗
+██╔═══╝ ██╔═══╝ ██╔══╝  ╚════██║
+██║     ██║     ███████╗███████║
+╚═╝     ╚═╝     ╚══════╝╚══════╝
+PRICE CALCULATION TESTS
+"""
+
+class PricingTests(TestCase):
+
+    def setUp(self):
+        self.base_rate = 150
+        PricingConfig.objects.create(base_rate=self.base_rate)
+        self.today = date.today()
+
+    def test_base_rate_applied_if_no_override(self):
+        check_in = self.today
+        check_out = self.today + timedelta(days=3)
+        total = calculate_total_price(check_in, check_out)
+        self.assertEqual(total, self.base_rate * 3)
+
+    def test_override_price_applied_if_present(self):
+        PricingRule.objects.create(date=self.today + timedelta(days=1), rate=200)
+        check_in = self.today
+        check_out = self.today + timedelta(days=3)
+        total = calculate_total_price(check_in, check_out)
+        # Only one override, others use base
+        expected = self.base_rate + 200 + self.base_rate
+        self.assertEqual(total, expected)
