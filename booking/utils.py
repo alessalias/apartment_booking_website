@@ -38,7 +38,7 @@ def get_override_price_for_date(target_date: date):
     otherwise returns None.
     """
     rule = PricingRule.objects.filter(date=target_date).first()
-    return rule.price if rule else None
+    return rule.rate if rule else None
 
 
 def get_max_bookable_date():

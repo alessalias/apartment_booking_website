@@ -451,3 +451,5 @@ class PricingTests(TestCase):
         # Only one override, others use base
         expected = self.base_rate + 200 + self.base_rate
         self.assertEqual(total, expected)
+
+

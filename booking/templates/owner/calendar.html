@@ -1,37 +1,103 @@
-{% extends 'owner/layout.html' %}
+{% extends "owner/layout.html" %}
+
 {% load static %}
 
-{% block content %}
-<h2>Calendar</h2>
-<p>Click on any day to change the nightly price.</p>
-<div id="calendar"></div>
-<!-- FullCalendar CSS & JS -->
-<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/main.min.css" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/main.min.js"></script>
+{% block title %}Availability{% endblock %}
 
-<!-- Modal for editing price -->
-<div class="modal fade" id="priceModal" tabindex="-1" aria-hidden="true">
+{% block content %}
+<h2>Availability Calendar</h2>
+
+  <div id="calendar"></div>
+
+  <!-- FullCalendar JS -->
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const calendarEl = document.getElementById('calendar');
+    
+        const calendar = new FullCalendar.Calendar(calendarEl, {
+          initialView: 'dayGridMonth',
+          events: '/owner/calendar-data/',
+          selectable: true,
+    
+          eventContent: function(arg) {
+            const price = arg.event.extendedProps.price;
+            const isBooked = arg.event.extendedProps.booked;
+    
+            const label = isBooked ? 'Booked' : (price ? `€${price}` : '');
+    
+            return {
+              html: `<div style="font-size:0.85em">${label}</div>`
+            };
+          },
+    
+          dateClick: function(info) {
+            const dateStr = info.dateStr;
+    
+            const event = calendar.getEvents().find(e => e.startStr === dateStr);
+            const existingPrice = event?.extendedProps?.price ?? '';
+    
+            // Fill modal
+            document.getElementById('modal-date').value = dateStr;
+            document.getElementById('modal-price').value = existingPrice;
+    
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('priceModal'));
+            modal.show();
+          }
+        });
+    
+        calendar.render();
+    
+        // Handle modal form submission
+        document.getElementById('priceForm').addEventListener('submit', function(e) {
+          e.preventDefault();
+    
+          const date = document.getElementById('modal-date').value;
+          const price = document.getElementById('modal-price').value;
+    
+          fetch('/owner/update-price/', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': '{{ csrf_token }}'  // Works because you're inside a Django template
+            },
+            body: JSON.stringify({ date, price })
+          })
+          .then(response => response.json())
+          .then(data => {
+            if (data.success) {
+              calendar.refetchEvents();
+    
+              const modal = bootstrap.Modal.getInstance(document.getElementById('priceModal'));
+              modal.hide();
+            } else {
+              alert('Error saving price: ' + data.error);
+            }
+          });
+        });
+      });
+  </script>
+  <!-- Bootstrap Modal -->
+<div class="modal fade" id="priceModal" tabindex="-1" aria-labelledby="priceModalLabel" aria-hidden="true">
     <div class="modal-dialog">
       <form id="priceForm" class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title">Edit Price</h5>
+          <h5 class="modal-title" id="priceModalLabel">Set Price for Date</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
-          <input type="hidden" id="modal-date" name="date">
+          <input type="hidden" id="modal-date" name="date" />
           <div class="mb-3">
-            <label for="modal-price" class="form-label">Nightly Price (€)</label>
-            <input type="number" class="form-control" id="modal-price" name="price" step="1" min="0">
+            <label for="modal-price" class="form-label">Price (€)</label>
+            <input type="number" id="modal-price" name="price" class="form-control" required />
           </div>
         </div>
         <div class="modal-footer">
-          <button type="submit" class="btn btn-primary">Save</button>
+          <button type="submit" class="btn btn-primary">Save Price</button>
         </div>
       </form>
     </div>
   </div>
-{% endblock %}
-
-{% block scripts %}
-    <script src="{% static 'calendar.js' %}"></script>
 {% endblock %}

@@ -56,6 +56,14 @@ class PricingRule(models.Model):
     rate = models.DecimalField(max_digits=6, decimal_places=2)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    def clean(self):
+        if self.rate < 0:
+            raise ValidationError({'price': 'Price cannot be negative.'})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()  # Ensures `clean()` runs on save
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.date}: {self.rate}€"
 

@@ -3,7 +3,7 @@ from .forms import BookingForm, RegisterForm, AvailabilityConfigForm
 from .models import Booking, PricingRule, PricingConfig, OwnerProfile, AvailabilityConfig
 from .utils import calculate_total_price, get_base_rate, get_override_price_for_date, get_nightly_price
 from calendar import monthrange
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime 
 from decimal import Decimal
 from django.conf import settings
 from django.contrib import messages
@@ -18,9 +18,11 @@ from django.utils.timezone import now
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django import forms
+import json
 import logging
 from smtplib import SMTPException
 import stripe
+
 
 User = get_user_model()
 
@@ -187,7 +189,7 @@ def availability_json(request):
 
     # Pricing rules
     pricing_rules = PricingRule.objects.filter(date__range=(today, max_date))
-    pricing_dict = {pr.date: pr.price for pr in pricing_rules}
+    pricing_dict = {pr.date: pr.rate for pr in pricing_rules}
     base_rate = get_base_rate()
 
     # Add price for each available day
@@ -348,13 +350,18 @@ def update_price(request):
         try:
             data = json.loads(request.body)
             date_obj = datetime.strptime(data['date'], '%Y-%m-%d').date()
-            price = int(data['price'])
+            price = Decimal(data['price'])
+
+            if price < 0:
+                return JsonResponse({'success': False, 'error': 'Price must be zero or greater.'}, status=400)
 
             rule, created = PricingRule.objects.update_or_create(
                 date=date_obj,
-                defaults={'price': price}
+                defaults={'rate': price}
             )
             return JsonResponse({'success': True})
+        except (KeyError, ValueError, InvalidOperation) as e:
+            return JsonResponse({'success': False, 'error': 'Invalid data format. Please enter a valid price and date.'}, status=400)
         except Exception as e:
-            return JsonResponse({'success': False, 'error': str(e)})
-    return JsonResponse({'success': False, 'error': 'Invalid method'})
+            return JsonResponse({'success': False, 'error': 'Server error. Please try again later.'}, status=500)
+    return JsonResponse({'success': False, 'error': 'Invalid method'}, status=405)
