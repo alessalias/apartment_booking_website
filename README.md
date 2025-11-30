@@ -3,7 +3,7 @@
 #### Video Demo: https://youtu.be/b_q5iXyLxxQ
 
 [![Django CI](https://github.com/alessalias/navonaromantica/actions/workflows/django.yml/badge.svg)](https://github.com/alessalias/navonaromantica/actions/workflows/django.yml)
-![status](https://img.shields.io/badge/status-wip-yellow?style=for-the-badge)
+![Status](https://img.shields.io/badge/Status-wip-yellow)
 
 Welcome to **Navona Romantica Booking**, a minimalist booking system built with Django!  
 This app allows guests to book stays directly without needing third-party platforms.
